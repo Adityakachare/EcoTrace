@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Google Maps Integration with Range</title>
+    <style>
+        #map {
+            height: 400px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Google Maps Integration with Range</h1>
+    <div id="map"></div>
+    <input type="text" id="search-input" placeholder="Search for a place">
+    <input type="number" id="search-range" placeholder="Search within range (in meters)">
+    <button onclick="searchPlace()">Search</button>
+    <div id="directions-panel"></div>
+
+    <script>
+        let map;
+        let directionsService;
+        let directionsDisplay;
+        let circle;
+
+        function initMap() {
+            // Initialize the map
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 0, lng: 0 }, // Default to the center of the world
+                zoom: 15 // Adjust the zoom level as needed
+            });
+
+            // Initialize the directions service and display
+            directionsService = new google.maps.DirectionsService();
+            directionsDisplay = new google.maps.DirectionsRenderer();
+            directionsDisplay.setMap(map);
+
+            // Initialize the circle for search range
+            circle = new google.maps.Circle({
+                map: map,
+                radius: 0, // Default range is 0 meters
+                fillColor: '#00FF00',
+                fillOpacity: 0.2,
+                strokeColor: '#00FF00',
+                strokeOpacity: 1,
+                strokeWeight: 1
+            });
+
+            // Try to get the user's current location
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    const userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    map.setCenter(userLocation);
+                    circle.setCenter(userLocation);
+                    circle.setRadius(1000); // Default range is 1000 meters (1 kilometer)
+                    new google.maps.Marker({
+                        position: userLocation,
+                        map: map,
+                        title: 'Your Location'
+                    });
+                }, function () {
+                    handleLocationError(true, map.getCenter());
+                });
+            } else {
+                handleLocationError(false, map.getCenter());
+            }
+        }
+
+        function handleLocationError(browserHasGeolocation, pos) {
+            alert(browserHasGeolocation
+                ? 'Error: The Geolocation service failed.'
+                : 'Error: Your browser doesn\'t support geolocation.');
+        }
+
+        function searchPlace() {
+            const searchInput = document.getElementById('search-input').value;
+            const searchRange = parseFloat(document.getElementById('search-range').value) || 1000; // Default to 1000 meters if no range specified
+            const request = {
+                query: searchInput,
+                fields: ['name', 'geometry'],
+            };
+
+            const service = new google.maps.places.PlacesService(map);
+            service.textSearch(request, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK && results.length > 0) {
+                    const place = results[0];
+                    map.setCenter(place.geometry.location);
+                    circle.setCenter(place.geometry.location);
+                    circle.setRadius(searchRange);
+
+                    new google.maps.Marker({
+                        position: place.geometry.location,
+                        map: map,
+                        title: place.name
+                    });
+
+                    // Calculate and display directions from the user's location to the searched place
+                    const directionsRequest = {
+                        origin: map.getCenter(),
+                        destination: place.geometry.location,
+                        travelMode: 'DRIVING'
+                    };
+
+                    directionsService.route(directionsRequest, (response, status) => {
+                        if (status === 'OK') {
+                            directionsDisplay.setDirections(response);
+                        } else {
+                            window.alert('Directions request failed due to ' + status);
+                        }
+                    });
+                } else {
+                    alert('No results found for your search.');
+                }
+            });
+        }
+    </script>
+
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB0BdpPZF083ljYmDa9-vxQHjdXpcl9ogM&libraries=places&callback=initMap">
+        </script>
+</body>
+
+</html>
